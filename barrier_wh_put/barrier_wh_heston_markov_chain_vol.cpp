@@ -680,9 +680,9 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
               from the strike. And the more L the greater this bubble grows.
               what we are going to do there is to try to cut off all the values on prices greater than, say,
               4 times bigger then the strike
-              we use S>4K and, therefore, y > ln(4K/H) + (pho/sigma)*V inequality to do this*/
+              we use S>4K and, therefore, y > ln(4K/H) + (pho/sigma)*V inequality to do this
   
-			/*
+			
 			for (j = 0; j < M; j++)
 			{
 				if (ba_prices[j] < 4 * K)
@@ -694,8 +694,8 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					F[j][n][k].i = 0.0;
 					F[j][n][k].r = 0.0;
 				}
-			}
-				*/		
+			}*/
+						
 		}
 	}
 	return OK;
@@ -804,14 +804,14 @@ int main()
 	/*Heston model parameters*/
 	double v0 = 0.1; /* initial volatility */
 	double kappa = 2.0; /*heston parameter, mean reversion*/
-	double theta = 0.1; /*heston parameter, long-run variance*/
+	double theta = 0.2; /*heston parameter, long-run variance*/
 	double sigma = 0.2; /*heston parameter, volatility of variance*/
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
 	double rho = 0.5; /*heston parameter, correlation*/
 	/*method parameters*/
-	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2,7)); /*space grid. should be a power of 2*/
-	double L = 2.0; /*scaling coefficient*/
+	uint Nt = 300; /*number of time steps*/
+	uint M = uint(pow(2,13)); /*space grid. should be a power of 2*/
+	double L = 3.0; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)
