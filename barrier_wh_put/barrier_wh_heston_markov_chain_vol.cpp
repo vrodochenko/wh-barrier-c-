@@ -797,7 +797,9 @@ int main()
 	double H = 90.0;
 	double K = 100.0;
 	double r_premia = 10;
-	double spot = 100.0;
+	double spot = 90.0;
+	double spot_step = 1.0;
+	uint spot_iterations = 11;
 
 	/*Heston model parameters*/
 	double v0 = 0.1; /* initial volatility */
@@ -823,7 +825,11 @@ int main()
 		{
 			printf("ba_price %f Price %f\n", ba_prices[j], F[j][0][0].r);
 		}
-		printf("interp ba_price %f Price %f\n", spot, quadratic_interpolation(spot, M));
+		for (uint i = 0; i < spot_iterations; i++)
+		{
+			printf("interp ba_price %f Price %f\n", spot + i*spot_step, quadratic_interpolation(spot + i*spot_step, M));
+		}
+		
 		printf("discretization step on logscale was %f\n", calculate_space_discretization_step(L, M));
 		free_memory(Nt, M, M);
 		getchar();
