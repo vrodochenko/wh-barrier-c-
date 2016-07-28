@@ -373,7 +373,7 @@ static int tree_v(double tt, double v0, double kappa, double theta, double omega
 		printf("Making voltree. Layer: %d of %d\n", i, Nt - 1);
 		for (j = 0; j <= i; j++)
 		{
-			/*Compute mu_f*/
+			/*Compute mu_f*/ 
 			v_curr = V[i][j];
 
 			mu_r = kappa*(theta - v_curr);
@@ -414,7 +414,6 @@ static int tree_v(double tt, double v0, double kappa, double theta, double omega
 				f_down[i][j] = 0 - j;
 			}
 			pd_f[i][j] = 1. - pu_f[i][j];
-
 		}
 	}
 
@@ -447,7 +446,6 @@ static int fftfreq(uint M, double d)
 	}
 	free(p2);
 	return 0;
-	
 }
 
 static double G(double S, double K)
@@ -538,12 +536,25 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				f_n_plus_1_k_u[j] = F[j][n+1][k_u];
 				f_n_plus_1_k_d[j] = F[j][n+1][k_d];
 			}
+			/*applying indicator function*/
+			for (j = 0; j < M; j++)
+			{
+				if (ba_log_prices[j] < local_barrier)
+				{
+					f_n_plus_1_k_u[j].r = 0.0;
+					f_n_plus_1_k_u[j].i = 0.0;
+					f_n_plus_1_k_d[j].r = 0.0;
+					f_n_plus_1_k_d[j].i = 0.0;
+				}
+			}
 			if (V[n][k] >= treshold)
 			{
 				/*set up variance - dependent parameters for a given step*/
 				sigma_local = rho_hat * sqrt(V[n][k]);
 				gamma = r - 0.5 * V[n][k] - rho / sigma * kappa * (theta - V[n][k]);  /*also local*/
 				/* beta_plus and beta_minus*/
+				/*beta_minus = -(gamma + sqrt(gamma^2 + 2 * sigma^2 * q)) / sigma^2
+					beta_plus = -(gamma - sqrt(gamma^2 + 2 * sigma^2 * q)) / sigma^2*/
 				beta_minus = -(gamma + sqrt(pow(gamma,2) + 2 * pow(sigma_local,2) * q)) / pow(sigma_local,2);
 				beta_plus = -(gamma - sqrt(pow(gamma,2) + 2 * pow(sigma_local,2) * q)) / pow(sigma_local,2);
 
@@ -579,7 +590,6 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				}
 
 				pnl_ifft2(f_n_plus_1_k_u_fft_results_re, f_n_plus_1_k_u_fft_results_im, M);
-				
 				/*applying indicator function, after ifft*/
 				for (j = 0; j < M; j++)
 				{
@@ -807,11 +817,11 @@ static double calculate_space_discretization_step(double L, uint M)
 int main()
 {
 	/*Option parameters*/
-	double tt = 0.25;
+	double tt = 1;
 	double H = 90.0;
 	double K = 100.0;
 	double r_premia = 10;
-	double spot = 80.0;
+	double spot = 90.0;
 	double spot_step = 10;
 	uint spot_iterations = 21;
 
@@ -821,11 +831,11 @@ int main()
 	double theta = 0.2; /*heston parameter, long-run variance*/
 	double sigma = 0.2; /*heston parameter, volatility of variance*/
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
-	double rho = 0.5; /*heston parameter, correlation*/
+	double rho = 0.0; /*heston parameter, correlation*/
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2,13)); /*space grid. should be a power of 2*/
-	double L = 3; /*scaling coefficient*/
+	uint M = uint(pow(2,12)); /*space grid. should be a power of 2*/
+	double L = 2; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)
@@ -835,16 +845,15 @@ int main()
 	else
 	{
 		compute_price(tt, H, K, r_premia, v0, kappa, theta, sigma, rho, L, M, Nt);
-		for (uint j = find_nearest_right_price_position(K,M); j >= find_nearest_left_price_position(H, M); j--)
+		for (int j = find_nearest_right_price_position(1.5*K,M); j >= find_nearest_left_price_position(H, M); j--)
 		{
-			printf("ba_price %f Price %f\n", ba_prices[j], F[j][0][0].r);
+			printf("ba_price %f Price %f + %f i\n", ba_prices[j], F[j][0][0].r, F[j][0][0].i);
 		}
 		for (uint i = 0; i < spot_iterations; i++)
 		{
 			printf("interp ba_price %f Price %f\n", spot + i*spot_step, quadratic_interpolation(spot + i*spot_step, M));
 		}
 
-		
 		printf("discretization step on logscale was %f\n", calculate_space_discretization_step(L, M));
 		free_memory(Nt, M, M);
 		getchar();
