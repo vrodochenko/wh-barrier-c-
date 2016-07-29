@@ -381,7 +381,6 @@ static int tree_v(double tt, double v0, double kappa, double theta, double omega
 			z = 0;
 			while ((V[i][j] + mu_r*dt<V[i + 1][j - z])
 				&& (j - z >= 0)) {
-
 				z = z + 1;
 			}
 			f_down[i][j] = -z;
@@ -393,10 +392,10 @@ static int tree_v(double tt, double v0, double kappa, double theta, double omega
 			{
 				z = z + 1;
 			}
-
+			f_up[i][j] = z;
 			Ru = V[i + 1][j + z];
 
-			f_up[i][j] = z;
+
 			pu_f[i][j] = (V[i][j] + mu_r*dt - Rd) / (Ru - Rd);
 
 			if ((Ru - 1.e-9>V[i + 1][i + 1]) || (j + f_up[i][j]>i + 1))

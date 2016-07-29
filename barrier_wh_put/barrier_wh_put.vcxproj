@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="barrier_wh_heston_markov_chain_vol.cpp" />
+    <ClCompile Include="test_of_voltree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
