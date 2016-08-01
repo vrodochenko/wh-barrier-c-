@@ -9,6 +9,7 @@
 #define MEMORY_ALLOCATION_FAILURE 0
 #define OK 1
 
+#ifdef VOLATREE_TEST
 /*Vettori*/
 static double **V, **P_old, **P_new;
 static double **y, **f;
@@ -626,6 +627,7 @@ static double compute_bond_price(int Nt, double tt, double r_fisso)
 	return bond_price[0][0];
 }
 /*Compute Price of Bond*/
+
 int main()
 {
 	int dummy;
@@ -664,3 +666,4 @@ int main()
 	getchar();
 	return OK;
 }
+#endif
