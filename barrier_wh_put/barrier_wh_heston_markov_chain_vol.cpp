@@ -17,7 +17,8 @@ static int **f_down, **f_up;
 static int **y_down, **y_up;
 static double **pu_y, **pd_y;
 static double **pu_f, **pd_f;
-static dcomplex ***F;
+static dcomplex ***F; /*to store derivative price*/
+static double ***Y; /*to store local domains*/
 static double *ba_log_prices; /*basic asset price line, of length M*/
 static double *ba_prices; /*basic asset price line, of length M*/
 static double * fftfreqs; /*fft frequencies*/
@@ -120,6 +121,23 @@ static int memory_allocation(uint Nt, uint N, uint M)
 		{
 			F[j][i] = (dcomplex *)calloc(Nt + 1, sizeof(dcomplex));
 			if (F[j][i] == NULL)
+				return MEMORY_ALLOCATION_FAILURE;
+		}
+	}
+
+	/*Y is the M x Nt+1 x Nt+1 matrice, storing local price structures*/
+	Y = (double***)calloc(M, sizeof(double**));
+	if (Y == NULL)
+		return MEMORY_ALLOCATION_FAILURE;
+	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided V matrice, size Nt+1 to Nt+1*/
+	{
+		Y[j] = (double**)calloc(M, sizeof(double*));
+		if (Y[j] == NULL)
+			return MEMORY_ALLOCATION_FAILURE;
+		for (i = 0; i<Nt + 1; i++)
+		{
+			Y[j][i] = (double *)calloc(Nt + 1, sizeof(double));
+			if (Y[j][i] == NULL)
 				return MEMORY_ALLOCATION_FAILURE;
 		}
 	}
@@ -289,6 +307,16 @@ static void free_memory(uint Nt, uint N, uint M)
 	}
 	free(F);
 
+	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided V matrice, size Nt+1 to Nt+1*/
+	{
+		for (i = 0; i<Nt + 1; i++)
+		{
+			free(Y[j][i]);
+		}
+		free(Y[j]);
+	}
+	free(Y);
+
 	free(ba_log_prices); 
 	free(ba_prices);
 	free(f_n_plus_1_k_d);
@@ -445,7 +473,33 @@ static int fftfreq(uint M, double d)
 	free(p2);
 	return 0;
 }
+static int fftfreq_local(uint M, double d, double rho, double sigma, double v_n_k)
+{
+	int n = int(M);
+	double val = 1.0 / (n * d);
+	int middle = ((n - 1) / 2) + 1;
+	int i, k;
+	for (k = 0; k<middle; k++)
+	{
+		fftfreqs[k] = k;
+	}
+	double * p2 = (double *)calloc(n / 2, sizeof(double));
+	for (i = 0; i< n / 2; i++)
+	{
+		p2[i] = -n / 2 + i;
+	}
+	for (k = 0; k<n / 2; k++)
+	{
+		fftfreqs[middle + k] = p2[k];
+	}
 
+	for (k = 0; k<n; k++)
+	{
+		fftfreqs[k] = val * fftfreqs[k] - rho/sigma * v_n_k;
+	}
+	free(p2);
+	return 0;
+}
 static double G(double S, double K)
 {
 	return MAX(0, K - S);
@@ -468,8 +522,9 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 	double beta_minus, beta_plus; /*wh-factors coefficients*/
 	double local_barrier; /*a barrier depending on [n][k], to check crossing on each step*/
 
-	if (2.0 * kappa * theta < pow(sigma, 2))
-		return 1; /*Novikov condition not satisfied, probability values could be incorrect*/
+//	if (2.0 * kappa * theta < pow(sigma, 2))
+//		printf("Novikov condition not satisfied, probability values could be incorrect\n");
+//		return 1; /*Novikov condition not satisfied, probability values could be incorrect*/
 	/*Body*/
 	r = log(1 + r_premia / 100);
 
@@ -508,6 +563,21 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					F[j][n][k] = Complex(G(ba_prices[j], K),0);
 				}
 			}
+
+	/*filling Y matrice by local domains, according to the substitution structure*/
+	for (j = 0; j < M; j++)
+		for (n = 0; n < Nt + 1; n++)
+			for (k = 0; k < Nt + 1; k++)
+			{
+				min_log_price = L * log(0.5) - (rho / sigma)* V[n][k];
+				max_log_price = L * log(2.0) - (rho / sigma)* V[n][k];
+				ds = (max_log_price - min_log_price) / double(M);
+
+				for (j = 0; j < M; j++)
+				{
+					Y[j][n][k] = min_log_price + j*ds;
+				}
+			}
 	/*here the main cycle starts - the backward induction procedure*/
 	for (n = Nt - 1; n >= 0; n--)
 	{
@@ -526,7 +596,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			*/
 			k_u = k + f_up[n][k];
 			k_d = k + f_down[n][k];
-			//local_barrier = - (rho / sigma) * V[n][k];
+			local_barrier = - (rho / sigma) * V[n][k];
 
 			/*initial conditions of a step*/
 			for (j = 0; j < M; j++)
@@ -537,7 +607,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			/*applying indicator function*/
 			for (j = 0; j < M; j++)
 			{
-				if (ba_prices[j] < H)
+				if (Y[j][n+1][k_u] < local_barrier)
 				{
 					f_n_plus_1_k_u[j].r = 0.0;
 					f_n_plus_1_k_u[j].i = 0.0;
@@ -588,10 +658,11 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				}
 
 				pnl_ifft2(f_n_plus_1_k_u_fft_results_re, f_n_plus_1_k_u_fft_results_im, M);
-				/*applying indicator function, after ifft*/
+
+				/*applying indicator function after ifft 1-st time*/
 				for (j = 0; j < M; j++)
 				{
-					if (ba_prices[j] < H)
+					if (Y[j][n+1][k_u] < local_barrier)
 					{
 						f_n_plus_1_k_u_fft_results_re[j] = 0.0;
 						f_n_plus_1_k_u_fft_results_im[j] = 0.0;
@@ -614,7 +685,8 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				/*the very last ifft*/
 				pnl_ifft2(f_n_plus_1_k_u_fft_results_re, f_n_plus_1_k_u_fft_results_im, M);
 				/*multiplying by factor*/
-				for (j = 0; j < M; j++) {
+				for (j = 0; j < M; j++) 
+				{
 					f_n_k_u[j].r = factor * f_n_plus_1_k_u_fft_results_re[j];
 					f_n_k_u[j].i = factor * f_n_plus_1_k_u_fft_results_im[j];
 				}
@@ -625,7 +697,6 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				{
 					f_n_plus_1_k_d_re[j] = f_n_plus_1_k_d[j].r;
 					f_n_plus_1_k_d_im[j] = f_n_plus_1_k_d[j].i;
-
 				}
 				pnl_fft2(f_n_plus_1_k_d_re, f_n_plus_1_k_d_im, M);
 				for (j = 0; j < M; j++) {
@@ -641,7 +712,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				/*applying indicator function, after ifft*/
 				for (j = 0; j < M; j++)
 				{
-					if (ba_prices[j] < H)
+					if (Y[j][n+1][k_d] < local_barrier)
 					{
 						f_n_plus_1_k_d_fft_results_re[j] = 0.0;
 						f_n_plus_1_k_d_fft_results_im[j] = 0.0;
@@ -672,10 +743,13 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				/*applying indicator function*/
 				for (j = 0; j < M; j++)
 				{
-					if (ba_prices[j] < H)
+					if (Y[j][n + 1][k_u] < local_barrier)
 					{
 						f_n_plus_1_k_u[j].r = 0.0;
 						f_n_plus_1_k_u[j].i = 0.0;
+					}
+					if (Y[j][n + 1][k_d] < local_barrier)
+					{
 						f_n_plus_1_k_d[j].r = 0.0;
 						f_n_plus_1_k_d[j].i = 0.0;
 					}
@@ -716,8 +790,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					F[j][n][k].i = 0.0;
 					F[j][n][k].r = 0.0;
 				}
-			}*/
-						
+			}*/					
 		}
 	}
 	return OK;
@@ -824,12 +897,12 @@ int main()
 	uint spot_iterations = 21;
 
 	/*Heston model parameters*/
-	double v0 = 0.1; /* initial volatility */
+	double v0 = 0.01; /* initial volatility */
 	double kappa = 2.0; /*heston parameter, mean reversion*/
-	double theta = 0.15; /*heston parameter, long-run variance*/
-	double sigma = 0.02; /*heston parameter, volatility of variance*/
+	double theta = 0.01; /*heston parameter, long-run variance*/
+	double sigma = 0.2; /*heston parameter, volatility of variance*/
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
-	double rho = 0; /*heston parameter, correlation*/
+	double rho = 0.5; /*heston parameter, correlation*/
 
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
@@ -844,7 +917,7 @@ int main()
 	else
 	{
 		compute_price(tt, H, K, r_premia, v0, kappa, theta, sigma, rho, L, M, Nt);
-		for (int j = find_nearest_right_price_position(1.5*K,M); j >= find_nearest_left_price_position(H, M); j--)
+		for (int j = find_nearest_right_price_position(1.5*K - 5.0,M); j >= find_nearest_left_price_position(H, M); j--)
 		{
 			printf("ba_price %f Price %f + %f i\n", ba_prices[j], F[j][0][0].r, F[j][0][0].i);
 		}
