@@ -448,6 +448,7 @@ static int tree_v(double tt, double v0, double kappa, double theta, double omega
 
 static int fftfreq(uint M, double d)
 {	
+	
 	int n = int(M);
 	double val = 1.0 / (n * d);
 	int middle = ((n - 1)/2) + 1;
@@ -549,21 +550,6 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 	q = 1.0 / dt + r;
 	factor = pow(q*dt, -1.0);
 	discount_factor = exp(r*dt);
-	/*filling F matrice by initial (in time T) conditions*/
-	for (j = 0; j < M; j++)
-		for (n = 0; n < Nt + 1; n++)
-			for (k = 0; k < Nt + 1; k++)
-			{
-				if (n < Nt)
-				{
-					F[j][n][k] = Complex(0,0);
-				}
-				else if (n = Nt)
-				{
-					F[j][n][k] = Complex(G(ba_prices[j], K),0);
-				}
-			}
-
 	/*filling Y matrice by local domains, according to the substitution structure*/
 	for (j = 0; j < M; j++)
 		for (n = 0; n < Nt + 1; n++)
@@ -578,6 +564,25 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					Y[j][n][k] = min_log_price + j*ds;
 				}
 			}
+
+	/*filling F matrice by initial (in time T) conditions*/
+	double local_linear_scale_price;
+	for (j = 0; j < M; j++)
+		for (n = 0; n < Nt + 1; n++)
+			for (k = 0; k < Nt + 1; k++)
+			{
+				if (n < Nt)
+				{
+					F[j][n][k] = Complex(0,0);
+				}
+				else if (n = Nt)
+				{
+					local_linear_scale_price = H * exp(Y[j][n][k] + V[n][k] * (rho / sigma));
+					F[j][n][k] = Complex(G(local_linear_scale_price, K), 0.0);
+				}
+			}
+
+
 	/*here the main cycle starts - the backward induction procedure*/
 	for (n = Nt - 1; n >= 0; n--)
 	{
@@ -897,12 +902,12 @@ int main()
 	uint spot_iterations = 21;
 
 	/*Heston model parameters*/
-	double v0 = 0.01; /* initial volatility */
+	double v0 = 0.1; /* initial volatility */
 	double kappa = 2.0; /*heston parameter, mean reversion*/
-	double theta = 0.01; /*heston parameter, long-run variance*/
-	double sigma = 0.2; /*heston parameter, volatility of variance*/
-	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
+	double theta = 0.15; /*heston parameter, long-run variance*/
+	double sigma = 0.02; /*heston parameter, volatility of variance*/
 	double rho = 0.5; /*heston parameter, correlation*/
+	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
 
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
