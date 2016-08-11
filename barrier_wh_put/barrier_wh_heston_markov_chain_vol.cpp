@@ -503,7 +503,7 @@ static int fftfreq_local(uint M, double d, double rho, double sigma, double v_n_
 }
 static double G(double S, double K)
 {
-	return MAX(0, K - S);
+	return MAX(0., K - S);
 }
 
 static int compute_price(double tt, double H, double K, double r_premia, double v0, double kappa, double theta, double sigma, double rho, 
@@ -543,27 +543,12 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 		ba_prices[j] = H*exp(ba_log_prices[j] + (rho / sigma)* V[0][0]);
 	}
 	dt = tt / double(Nt);
-	
 	/*fft frequences we'll need in every vertice of a tree*/
 	fftfreq(M, ds);
 	rho_hat = sqrt(1.0 - pow(rho, 2.0));
 	q = 1.0 / dt + r;
 	factor = pow(q*dt, -1.0);
 	discount_factor = exp(r*dt);
-	/*filling Y matrice by local domains, according to the substitution structure*/
-	for (j = 0; j < M; j++)
-		for (n = 0; n < Nt + 1; n++)
-			for (k = 0; k < Nt + 1; k++)
-			{
-				min_log_price = L * log(0.5) - (rho / sigma)* V[n][k];
-				max_log_price = L * log(2.0) - (rho / sigma)* V[n][k];
-				ds = (max_log_price - min_log_price) / double(M);
-
-				for (j = 0; j < M; j++)
-				{
-					Y[j][n][k] = min_log_price + j*ds;
-				}
-			}
 
 	/*filling F matrice by initial (in time T) conditions*/
 	double local_linear_scale_price;
@@ -577,7 +562,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				}
 				else if (n = Nt)
 				{
-					local_linear_scale_price = H * exp(Y[j][n][k] + V[n][k] * (rho / sigma));
+					local_linear_scale_price = H * exp(ba_log_prices[j] + V[n][k] * (rho / sigma));
 					F[j][n][k] = Complex(G(local_linear_scale_price, K), 0.0);
 				}
 			}
@@ -612,7 +597,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			/*applying indicator function*/
 			for (j = 0; j < M; j++)
 			{
-				if (Y[j][n+1][k_u] < local_barrier)
+				if (ba_log_prices[j] < local_barrier)
 				{
 					f_n_plus_1_k_u[j].r = 0.0;
 					f_n_plus_1_k_u[j].i = 0.0;
@@ -667,7 +652,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				/*applying indicator function after ifft 1-st time*/
 				for (j = 0; j < M; j++)
 				{
-					if (Y[j][n+1][k_u] < local_barrier)
+					if (ba_log_prices[j] < local_barrier)
 					{
 						f_n_plus_1_k_u_fft_results_re[j] = 0.0;
 						f_n_plus_1_k_u_fft_results_im[j] = 0.0;
@@ -717,7 +702,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				/*applying indicator function, after ifft*/
 				for (j = 0; j < M; j++)
 				{
-					if (Y[j][n+1][k_d] < local_barrier)
+					if (ba_log_prices[j] < local_barrier)
 					{
 						f_n_plus_1_k_d_fft_results_re[j] = 0.0;
 						f_n_plus_1_k_d_fft_results_im[j] = 0.0;
@@ -748,12 +733,12 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				/*applying indicator function*/
 				for (j = 0; j < M; j++)
 				{
-					if (Y[j][n + 1][k_u] < local_barrier)
+					if (ba_log_prices[j] < local_barrier)
 					{
 						f_n_plus_1_k_u[j].r = 0.0;
 						f_n_plus_1_k_u[j].i = 0.0;
 					}
-					if (Y[j][n + 1][k_d] < local_barrier)
+					if (ba_log_prices[j] < local_barrier)
 					{
 						f_n_plus_1_k_d[j].r = 0.0;
 						f_n_plus_1_k_d[j].i = 0.0;
@@ -904,15 +889,15 @@ int main()
 	/*Heston model parameters*/
 	double v0 = 0.1; /* initial volatility */
 	double kappa = 2.0; /*heston parameter, mean reversion*/
-	double theta = 0.15; /*heston parameter, long-run variance*/
-	double sigma = 0.02; /*heston parameter, volatility of variance*/
+	double theta = 0.2; /*heston parameter, long-run variance*/
+	double sigma = 0.2; /*heston parameter, volatility of variance*/
 	double rho = 0.5; /*heston parameter, correlation*/
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
 
 	/*method parameters*/
-	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2,13)); /*space grid. should be a power of 2*/
-	double L = 2; /*scaling coefficient*/
+	uint Nt = 50; /*number of time steps*/
+	uint M = uint(pow(2,14)); /*space grid. should be a power of 2*/
+	double L = 3; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)

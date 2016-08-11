@@ -1,20 +1,15 @@
-﻿Сборка начата 05.08.2016 0:49:30.
-     1>Проект "C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\barrier_wh_put\barrier_wh_put.vcxproj" в узле 2 (целевые объекты Rebuild).
+﻿Сборка начата 12.08.2016 0:12:22.
+     1>Проект "C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\barrier_wh_put\barrier_wh_put.vcxproj" в узле 2 (целевые объекты Build).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\CL.exe /c /I"C:\Program Files (x86)\Visual Leak Detector\include" /ZI /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"x64\Debug\\" /Fd"x64\Debug\vc140.pdb" /Gd /TP /errorReport:prompt barrier_wh_heston_markov_chain_vol.cpp test_of_voltree.cpp
-         test_of_voltree.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\CL.exe /c /I"C:\Program Files (x86)\Visual Leak Detector\include" /ZI /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"x64\Debug\\" /Fd"x64\Debug\vc140.pdb" /Gd /TP /errorReport:prompt barrier_wh_heston_markov_chain_vol.cpp
          barrier_wh_heston_markov_chain_vol.cpp
-     1>c:\users\родоченко\documents\visual studio 2015\projects\barrier_wh_put\barrier_wh_put\barrier_wh_heston_markov_chain_vol.cpp(569): warning C4101: local_linear_scale_price: неиспользованная локальная переменная
-         Создание кода...
-       ResourceCompile:
-         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /l"0x0409" /nologo /fo"x64\Debug\barrier_wh_put.res" barrier_wh_put.rc 
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\x64\Debug\barrier_wh_put.exe" /INCREMENTAL /NOLOGO /LIBPATH:"C:\pnl-win64-1.7.4\pnl-win64-1.7.4\lib" /LIBPATH:"C:\Program Files (x86)\Visual Leak Detector\lib\Win64" libpnl.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\x64\Debug\barrier_wh_put.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\x64\Debug\barrier_wh_put.lib" /MACHINE:X64 x64\Debug\barrier_wh_put.res
          x64\Debug\barrier_wh_heston_markov_chain_vol.obj
          x64\Debug\test_of_voltree.obj
          barrier_wh_put.vcxproj -> C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\x64\Debug\barrier_wh_put.exe
-     1>Сборка проекта "C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\barrier_wh_put\barrier_wh_put.vcxproj" завершена (целевые объекты Rebuild).
+     1>Сборка проекта "C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\barrier_wh_put\barrier_wh_put.vcxproj" завершена (целевые объекты Build).
 
 Сборка успешно завершена.
 
-Затраченное время: 00:00:02.65
+Затраченное время: 00:00:01.04
