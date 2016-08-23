@@ -450,7 +450,7 @@ static int fftfreq(uint M, double d)
 {	
 	
 	int n = int(M);
-	double val = 1.0 / (n * d);
+	double val = 2 * PI / n*d;//1.0 / (n * d);
 	int middle = ((n - 1)/2) + 1;
 	int i,k;
 	for (k = 0; k<middle; k++)
@@ -474,33 +474,7 @@ static int fftfreq(uint M, double d)
 	free(p2);
 	return 0;
 }
-static int fftfreq_local(uint M, double d, double rho, double sigma, double v_n_k)
-{
-	int n = int(M);
-	double val = 1.0 / (n * d);
-	int middle = ((n - 1) / 2) + 1;
-	int i, k;
-	for (k = 0; k<middle; k++)
-	{
-		fftfreqs[k] = k;
-	}
-	double * p2 = (double *)calloc(n / 2, sizeof(double));
-	for (i = 0; i< n / 2; i++)
-	{
-		p2[i] = -n / 2 + i;
-	}
-	for (k = 0; k<n / 2; k++)
-	{
-		fftfreqs[middle + k] = p2[k];
-	}
 
-	for (k = 0; k<n; k++)
-	{
-		fftfreqs[k] = val * fftfreqs[k] - rho/sigma * v_n_k;
-	}
-	free(p2);
-	return 0;
-}
 static double G(double S, double K)
 {
 	return MAX(0., K - S);
@@ -594,7 +568,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				f_n_plus_1_k_u[j] = F[j][n+1][k_u];
 				f_n_plus_1_k_d[j] = F[j][n+1][k_d];
 			}
-			/*applying indicator function*/
+			/*applying indicator function. This is to feed a correct data of a hat-shaped function to the fft*/
 			for (j = 0; j < M; j++)
 			{
 				if (ba_log_prices[j] < local_barrier)
@@ -607,7 +581,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			}
 			if (V[n][k] >= treshold)
 			{
-				/*set up variance - dependent parameters for a given step*/
+				/*set up variance-dependent parameters for a given step*/
 				sigma_local = rho_hat * sqrt(V[n][k]);
 				gamma = r - 0.5 * V[n][k] - rho / sigma * kappa * (theta - V[n][k]);  /*also local*/
 				/* beta_plus and beta_minus*/
@@ -639,12 +613,21 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_u_fft_results[j] = Complex(f_n_plus_1_k_u_re[j], f_n_plus_1_k_u_im[j]);
+					/*making correction with respect to a necessary offset of the space variable domain*/
+					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_u_fft_results[j] = RCmul(ds,
+						Cmul(f_n_plus_1_k_u_fft_results[j], 
+						Cexp(RCmul(L*log(0.5) - (rho/sigma) * V[n+1][k_u], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_plus*/
 					f_n_plus_1_k_u_fft_results[j] = Cmul(phi_plus_array[j], f_n_plus_1_k_u_fft_results[j]);
+					/*making correction before ifft, to fit the dft formulation in PNL*/
+					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_u_fft_results[j] = RCmul(1/ds,
+						Cmul(f_n_plus_1_k_u_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_u], RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_u_fft_results_re[j] = f_n_plus_1_k_u_fft_results[j].r;
 					f_n_plus_1_k_u_fft_results_im[j] = f_n_plus_1_k_u_fft_results[j].i;
-
 				}
 
 				pnl_ifft2(f_n_plus_1_k_u_fft_results_re, f_n_plus_1_k_u_fft_results_im, M);
@@ -665,8 +648,18 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_u_fft_results[j] = Complex(f_n_plus_1_k_u_fft_results_re[j], f_n_plus_1_k_u_fft_results_im[j]);
+					/*making correction with respect to a necessary offset of the space variable domain*/
+					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_u_fft_results[j] = RCmul(ds,
+						Cmul(f_n_plus_1_k_u_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_u], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_minus*/
 					f_n_plus_1_k_u_fft_results[j] = Cmul(phi_minus_array[j], f_n_plus_1_k_u_fft_results[j]);
+					/*making correction before ifft, to fit the dft formulation in PNL*/
+					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_u_fft_results[j] = RCmul(1 / ds,
+						Cmul(f_n_plus_1_k_u_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_u], RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_u_fft_results_re[j] = f_n_plus_1_k_u_fft_results[j].r;
 					f_n_plus_1_k_u_fft_results_im[j] = f_n_plus_1_k_u_fft_results[j].i;
@@ -692,8 +685,18 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_d_fft_results[j] = Complex(f_n_plus_1_k_d_re[j], f_n_plus_1_k_d_im[j]);
+					/*making correction with respect to a necessary offset of the space variable domain*/
+					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_d_fft_results[j] = RCmul(ds,
+						Cmul(f_n_plus_1_k_d_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_plus*/
 					f_n_plus_1_k_d_fft_results[j] = Cmul(phi_plus_array[j], f_n_plus_1_k_d_fft_results[j]);
+					/*making correction before ifft, to fit the dft formulation in PNL*/
+					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_d_fft_results[j] = RCmul(1 / ds,
+						Cmul(f_n_plus_1_k_d_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_d_fft_results_re[j] = f_n_plus_1_k_d_fft_results[j].r;
 					f_n_plus_1_k_d_fft_results_im[j] = f_n_plus_1_k_d_fft_results[j].i;
@@ -714,15 +717,25 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_d_fft_results[j] = Complex(f_n_plus_1_k_d_fft_results_re[j], f_n_plus_1_k_d_fft_results_im[j]);
+					/*making correction with respect to a necessary offset of the space variable domain*/
+					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_d_fft_results[j] = RCmul(ds,
+						Cmul(f_n_plus_1_k_d_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_minus*/
 					f_n_plus_1_k_d_fft_results[j] = Cmul(phi_minus_array[j], f_n_plus_1_k_d_fft_results[j]);
+					/*making correction before ifft, to fit the dft formulation in PNL*/
+					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
+					f_n_plus_1_k_d_fft_results[j] = RCmul(1 / ds,
+						Cmul(f_n_plus_1_k_d_fft_results[j],
+							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_d_fft_results_re[j] = f_n_plus_1_k_d_fft_results[j].r;
 					f_n_plus_1_k_d_fft_results_im[j] = f_n_plus_1_k_d_fft_results[j].i;
 				}
 				/*the very last ifft*/
 				pnl_ifft2(f_n_plus_1_k_d_fft_results_re, f_n_plus_1_k_d_fft_results_im, M);
-				/*multiplying by factor*/
+				/*multiplying by a factor*/
 				for (j = 0; j < M; j++) {
 					f_n_k_d[j].r = factor * f_n_plus_1_k_d_fft_results_re[j];
 					f_n_k_d[j].i = factor * f_n_plus_1_k_d_fft_results_im[j];
