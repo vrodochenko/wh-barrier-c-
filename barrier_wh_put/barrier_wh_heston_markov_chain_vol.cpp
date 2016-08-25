@@ -17,8 +17,8 @@ static int **f_down, **f_up;
 static int **y_down, **y_up;
 static double **pu_y, **pd_y;
 static double **pu_f, **pd_f;
-static dcomplex ***F; /*to store derivative price*/
-static double ***Y; /*to store local domains*/
+static dcomplex **F_next; /*to store derivative price*/
+static dcomplex **F_prev; /*to store derivative price*/
 static double *ba_log_prices; /*basic asset price line, of length M*/
 static double *ba_prices; /*basic asset price line, of length M*/
 static double * fftfreqs; /*fft frequencies*/
@@ -108,38 +108,25 @@ static int memory_allocation(uint Nt, uint N, uint M)
 		P_new[i] = (double *)malloc((Nt + 1)*sizeof(double));
 
 	/*----------------------here are the variables I added----------------------------*/
-	/*F is the M x Nt+1 x Nt+1 matrice, storing total price-state structures*/
-	F = (dcomplex***)calloc(M, sizeof(dcomplex**));
-	if (F == NULL)
+
+	F_next = (dcomplex**)calloc(M, sizeof(dcomplex*));
+	if (F_next == NULL)
 		return MEMORY_ALLOCATION_FAILURE;
-	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided V matrice, size Nt+1 to Nt+1*/
+	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided vector, size Nt+1*/
 	{
-		F[j] = (dcomplex**)calloc(M, sizeof(dcomplex*));
-		if (F[j] == NULL)
+		F_next[j] = (dcomplex *)calloc(Nt + 1, sizeof(dcomplex));
+		if (F_next[j] == NULL)
 			return MEMORY_ALLOCATION_FAILURE;
-		for (i = 0; i<Nt + 1; i++)
-		{
-			F[j][i] = (dcomplex *)calloc(Nt + 1, sizeof(dcomplex));
-			if (F[j][i] == NULL)
-				return MEMORY_ALLOCATION_FAILURE;
-		}
 	}
 
-	/*Y is the M x Nt+1 x Nt+1 matrice, storing local price structures*/
-	Y = (double***)calloc(M, sizeof(double**));
-	if (Y == NULL)
+	F_prev = (dcomplex**)calloc(M, sizeof(dcomplex*));
+	if (F_prev == NULL)
 		return MEMORY_ALLOCATION_FAILURE;
-	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided V matrice, size Nt+1 to Nt+1*/
+	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided vector, size Nt+1*/
 	{
-		Y[j] = (double**)calloc(M, sizeof(double*));
-		if (Y[j] == NULL)
+		F_prev[j] = (dcomplex *)calloc(Nt + 1, sizeof(dcomplex));
+		if (F_prev[j] == NULL)
 			return MEMORY_ALLOCATION_FAILURE;
-		for (i = 0; i<Nt + 1; i++)
-		{
-			Y[j][i] = (double *)calloc(Nt + 1, sizeof(double));
-			if (Y[j][i] == NULL)
-				return MEMORY_ALLOCATION_FAILURE;
-		}
 	}
 	
 	/*a vector of length M to store logarithms of prices divided by barrier log(S/H). Needs an additional procedure to be
@@ -297,25 +284,17 @@ static void free_memory(uint Nt, uint N, uint M)
 		free(P_new[i]);
 	free(P_new);
 
-	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided V matrice, size Nt+1 to Nt+1*/
+	for (uint j = 0; j < M; j++) 
 	{
-		for (i = 0; i<Nt + 1; i++)
-		{
-			free(F[j][i]);
-		}
-		free(F[j]);
+		free(F_next[j]);
 	}
-	free(F);
+	free(F_next);
 
-	for (uint j = 0; j < M; j++) /*for each price grid element we generate a markov chain-resided V matrice, size Nt+1 to Nt+1*/
+	for (uint j = 0; j < M; j++)
 	{
-		for (i = 0; i<Nt + 1; i++)
-		{
-			free(Y[j][i]);
-		}
-		free(Y[j]);
+		free(F_prev[j]);
 	}
-	free(Y);
+	free(F_prev);
 
 	free(ba_log_prices); 
 	free(ba_prices);
@@ -527,19 +506,11 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 	/*filling F matrice by initial (in time T) conditions*/
 	double local_linear_scale_price;
 	for (j = 0; j < M; j++)
-		for (n = 0; n < Nt + 1; n++)
-			for (k = 0; k < Nt + 1; k++)
-			{
-				if (n < Nt)
-				{
-					F[j][n][k] = Complex(0,0);
-				}
-				else if (n = Nt)
-				{
-					local_linear_scale_price = H * exp(ba_log_prices[j] + V[n][k] * (rho / sigma));
-					F[j][n][k] = Complex(G(local_linear_scale_price, K), 0.0);
-				}
-			}
+		for (k = 0; k < Nt + 1; k++)
+		{
+			local_linear_scale_price = H * exp(ba_log_prices[j] + V[Nt][k] * (rho / sigma));
+			F_next[j][k] = Complex(G(local_linear_scale_price, K), 0.0);
+		}
 
 
 	/*here the main cycle starts - the backward induction procedure*/
@@ -565,8 +536,8 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			/*initial conditions of a step*/
 			for (j = 0; j < M; j++)
 			{
-				f_n_plus_1_k_u[j] = F[j][n+1][k_u];
-				f_n_plus_1_k_d[j] = F[j][n+1][k_d];
+				f_n_plus_1_k_u[j] = F_next[j][k_u];
+				f_n_plus_1_k_d[j] = F_next[j][k_d];
 			}
 			/*applying indicator function. This is to feed a correct data of a hat-shaped function to the fft*/
 			for (j = 0; j < M; j++)
@@ -617,14 +588,14 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_u_fft_results[j] = RCmul(ds,
 						Cmul(f_n_plus_1_k_u_fft_results[j], 
-						Cexp(RCmul(L*log(0.5) - (rho/sigma) * V[n+1][k_u], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+						Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_plus*/
 					f_n_plus_1_k_u_fft_results[j] = Cmul(phi_plus_array[j], f_n_plus_1_k_u_fft_results[j]);
 					/*making correction before ifft, to fit the dft formulation in PNL*/
 					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_u_fft_results[j] = RCmul(1/ds,
 						Cmul(f_n_plus_1_k_u_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_u], RCmul(fftfreqs[j], CI)))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_u_fft_results_re[j] = f_n_plus_1_k_u_fft_results[j].r;
 					f_n_plus_1_k_u_fft_results_im[j] = f_n_plus_1_k_u_fft_results[j].i;
@@ -652,14 +623,14 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_u_fft_results[j] = RCmul(ds,
 						Cmul(f_n_plus_1_k_u_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_u], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_minus*/
 					f_n_plus_1_k_u_fft_results[j] = Cmul(phi_minus_array[j], f_n_plus_1_k_u_fft_results[j]);
 					/*making correction before ifft, to fit the dft formulation in PNL*/
 					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_u_fft_results[j] = RCmul(1 / ds,
 						Cmul(f_n_plus_1_k_u_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_u], RCmul(fftfreqs[j], CI)))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_u_fft_results_re[j] = f_n_plus_1_k_u_fft_results[j].r;
 					f_n_plus_1_k_u_fft_results_im[j] = f_n_plus_1_k_u_fft_results[j].i;
@@ -689,14 +660,14 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_d_fft_results[j] = RCmul(ds,
 						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_plus*/
 					f_n_plus_1_k_d_fft_results[j] = Cmul(phi_plus_array[j], f_n_plus_1_k_d_fft_results[j]);
 					/*making correction before ifft, to fit the dft formulation in PNL*/
 					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_d_fft_results[j] = RCmul(1 / ds,
 						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], CI)))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_d_fft_results_re[j] = f_n_plus_1_k_d_fft_results[j].r;
 					f_n_plus_1_k_d_fft_results_im[j] = f_n_plus_1_k_d_fft_results[j].i;
@@ -721,14 +692,14 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_d_fft_results[j] = RCmul(ds,
 						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
 					/*multiplying by phi_minus*/
 					f_n_plus_1_k_d_fft_results[j] = Cmul(phi_minus_array[j], f_n_plus_1_k_d_fft_results[j]);
 					/*making correction before ifft, to fit the dft formulation in PNL*/
 					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
 					f_n_plus_1_k_d_fft_results[j] = RCmul(1 / ds,
 						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(L*log(0.5) - (rho / sigma) * V[n + 1][k_d], RCmul(fftfreqs[j], CI)))));
+							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_d_fft_results_re[j] = f_n_plus_1_k_d_fft_results[j].r;
 					f_n_plus_1_k_d_fft_results_im[j] = f_n_plus_1_k_d_fft_results[j].i;
@@ -759,10 +730,10 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				}
 				for (j = 0; j < M; j++)
 				{
-					f_n_plus_1_k_u[j] = F[j][n + 1][k_u] ;
+					f_n_plus_1_k_u[j] = F_prev[j][k_u] ;
 					f_n_k_u[j] = RCmul(discount_factor, f_n_plus_1_k_u[j]);
 
-					f_n_plus_1_k_d[j] = F[j][n + 1][k_d];
+					f_n_plus_1_k_d[j] = F_prev[j][k_d];
 					f_n_k_d[j] = RCmul(discount_factor, f_n_plus_1_k_d[j]);
 				}
 			}
@@ -772,7 +743,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			for (j = 0; j < M; j++)
 			{
 				f_n_k[j] = Cadd(RCmul(pd_f[n][k], f_n_k_d[j]), RCmul(pu_f[n][k], f_n_k_u[j]));
-				F[j][n][k] = f_n_k[j];
+				F_prev[j][k] = f_n_k[j];
 			}
 
 			/*here we try some cutdown magic. The procedure without it returns great bubbles to the right
@@ -795,6 +766,11 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				}
 			}*/					
 		}
+		for (k = 0; k < Nt; k++)
+			for (j = 0; j < M; j++)
+			{
+				F_next[j][k] = F_prev[j][k];
+			}
 	}
 	return OK;
 }
@@ -872,9 +848,9 @@ static double quadratic_interpolation(double spot_price, uint M)
 	double Sr = ba_prices[i+1];
 
 	// S0 is between Sm and Sr
-	double pricel = F[i - 1][0][0].r;
-	double pricem = F[i][0][0].r;
-	double pricer = F[i + 1][0][0].r;
+	double pricel = F_prev[i - 1][0].r;
+	double pricem = F_prev[i][0].r;
+	double pricer = F_prev[i + 1][0].r;
 
 	//quadratic interpolation
 	double A = pricel;
@@ -895,9 +871,9 @@ int main()
 	double H = 90.0;
 	double K = 100.0;
 	double r_premia = 10;
-	double spot = 90.0;
-	double spot_step = 10;
-	uint spot_iterations = 21;
+	double spot = 80.0;
+	double spot_step = 1;
+	uint spot_iterations = 41;
 
 	/*Heston model parameters*/
 	double v0 = 0.1; /* initial volatility */
@@ -908,9 +884,9 @@ int main()
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
 
 	/*method parameters*/
-	uint Nt = 50; /*number of time steps*/
-	uint M = uint(pow(2,14)); /*space grid. should be a power of 2*/
-	double L = 3; /*scaling coefficient*/
+	uint Nt = 100; /*number of time steps*/
+	uint M = uint(pow(2,11)); /*space grid. should be a power of 2*/
+	double L = 4; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)
@@ -922,7 +898,7 @@ int main()
 		compute_price(tt, H, K, r_premia, v0, kappa, theta, sigma, rho, L, M, Nt);
 		for (int j = find_nearest_right_price_position(1.5*K - 5.0,M); j >= find_nearest_left_price_position(H, M); j--)
 		{
-			printf("ba_price %f Price %f + %f i\n", ba_prices[j], F[j][0][0].r, F[j][0][0].i);
+			printf("ba_price %f Price %f + %f i\n", ba_prices[j], F_prev[j][0].r, F_prev[j][0].i);
 		}
 		for (uint i = 0; i < spot_iterations; i++)
 		{
