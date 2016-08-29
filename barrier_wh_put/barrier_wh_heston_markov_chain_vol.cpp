@@ -426,22 +426,21 @@ static int tree_v(double tt, double v0, double kappa, double theta, double omega
 }
 
 static int fftfreq(uint M, double d)
-{	
-	
+{
 	int n = int(M);
-	double val = 2 * PI / n*d;//1.0 / (n * d);
-	int middle = ((n - 1)/2) + 1;
-	int i,k;
+	double val = 2*PI / n*d;//1.0 / (n * d);
+	int middle = ((n - 1) / 2) + 1;
+	int i, k;
 	for (k = 0; k<middle; k++)
 	{
 		fftfreqs[k] = k;
 	}
-	double * p2 = (double *)calloc(n/2, sizeof(double));
-	for (i = 0; i< n/2; i++)
+	double * p2 = (double *)calloc(n / 2, sizeof(double));
+	for (i = 0; i< n / 2; i++)
 	{
-		p2[i] = -n/2 + i;
+		p2[i] = -n / 2 + i;
 	}
-	for (k = 0; k<n/2; k++)
+	for (k = 0; k<n / 2; k++)
 	{
 		fftfreqs[middle + k] = p2[k];
 	}
@@ -478,7 +477,7 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 
 //	if (2.0 * kappa * theta < pow(sigma, 2))
 //		printf("Novikov condition not satisfied, probability values could be incorrect\n");
-//		return 1; /*Novikov condition not satisfied, probability values could be incorrect*/
+//		return 1; /*Novikov condition not satisfied, the probability values could be incorrect*/
 	/*Body*/
 	r = log(1 + r_premia / 100);
 
@@ -501,7 +500,8 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 	rho_hat = sqrt(1.0 - pow(rho, 2.0));
 	q = 1.0 / dt + r;
 	factor = pow(q*dt, -1.0);
-	discount_factor = exp(r*dt);
+	//discount_factor = exp(r*dt); //from Y differential equation
+	discount_factor = r - rho / sigma * kappa * theta;
 
 	/*filling F matrice by initial (in time T) conditions*/
 	double local_linear_scale_price;
@@ -584,18 +584,10 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_u_fft_results[j] = Complex(f_n_plus_1_k_u_re[j], f_n_plus_1_k_u_im[j]);
-					/*making correction with respect to a necessary offset of the space variable domain*/
-					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_u_fft_results[j] = RCmul(ds,
-						Cmul(f_n_plus_1_k_u_fft_results[j], 
-						Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+
 					/*multiplying by phi_plus*/
 					f_n_plus_1_k_u_fft_results[j] = Cmul(phi_plus_array[j], f_n_plus_1_k_u_fft_results[j]);
-					/*making correction before ifft, to fit the dft formulation in PNL*/
-					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_u_fft_results[j] = RCmul(1/ds,
-						Cmul(f_n_plus_1_k_u_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
+
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_u_fft_results_re[j] = f_n_plus_1_k_u_fft_results[j].r;
 					f_n_plus_1_k_u_fft_results_im[j] = f_n_plus_1_k_u_fft_results[j].i;
@@ -619,18 +611,10 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_u_fft_results[j] = Complex(f_n_plus_1_k_u_fft_results_re[j], f_n_plus_1_k_u_fft_results_im[j]);
-					/*making correction with respect to a necessary offset of the space variable domain*/
-					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_u_fft_results[j] = RCmul(ds,
-						Cmul(f_n_plus_1_k_u_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+
 					/*multiplying by phi_minus*/
 					f_n_plus_1_k_u_fft_results[j] = Cmul(phi_minus_array[j], f_n_plus_1_k_u_fft_results[j]);
-					/*making correction before ifft, to fit the dft formulation in PNL*/
-					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_u_fft_results[j] = RCmul(1 / ds,
-						Cmul(f_n_plus_1_k_u_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
+
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_u_fft_results_re[j] = f_n_plus_1_k_u_fft_results[j].r;
 					f_n_plus_1_k_u_fft_results_im[j] = f_n_plus_1_k_u_fft_results[j].i;
@@ -656,18 +640,10 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_d_fft_results[j] = Complex(f_n_plus_1_k_d_re[j], f_n_plus_1_k_d_im[j]);
-					/*making correction with respect to a necessary offset of the space variable domain*/
-					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_d_fft_results[j] = RCmul(ds,
-						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+
 					/*multiplying by phi_plus*/
 					f_n_plus_1_k_d_fft_results[j] = Cmul(phi_plus_array[j], f_n_plus_1_k_d_fft_results[j]);
-					/*making correction before ifft, to fit the dft formulation in PNL*/
-					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_d_fft_results[j] = RCmul(1 / ds,
-						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
+
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_d_fft_results_re[j] = f_n_plus_1_k_d_fft_results[j].r;
 					f_n_plus_1_k_d_fft_results_im[j] = f_n_plus_1_k_d_fft_results[j].i;
@@ -688,18 +664,10 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				for (j = 0; j < M; j++) {
 					/*putting complex and imaginary part together again*/
 					f_n_plus_1_k_d_fft_results[j] = Complex(f_n_plus_1_k_d_fft_results_re[j], f_n_plus_1_k_d_fft_results_im[j]);
-					/*making correction with respect to a necessary offset of the space variable domain*/
-					/*z_p = delta * exp(- i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_d_fft_results[j] = RCmul(ds,
-						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], RCmul(-1.0, CI))))));
+
 					/*multiplying by phi_minus*/
 					f_n_plus_1_k_d_fft_results[j] = Cmul(phi_minus_array[j], f_n_plus_1_k_d_fft_results[j]);
-					/*making correction before ifft, to fit the dft formulation in PNL*/
-					/*z_p = 1/delta * exp( i * xi_p * a ) * z_p*/
-					f_n_plus_1_k_d_fft_results[j] = RCmul(1 / ds,
-						Cmul(f_n_plus_1_k_d_fft_results[j],
-							Cexp(RCmul(min_log_price, RCmul(fftfreqs[j], CI)))));
+
 					/*extracting imaginary and complex parts to use in further fft*/
 					f_n_plus_1_k_d_fft_results_re[j] = f_n_plus_1_k_d_fft_results[j].r;
 					f_n_plus_1_k_d_fft_results_im[j] = f_n_plus_1_k_d_fft_results[j].i;
@@ -730,11 +698,11 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				}
 				for (j = 0; j < M; j++)
 				{
-					f_n_plus_1_k_u[j] = F_prev[j][k_u] ;
-					f_n_k_u[j] = RCmul(discount_factor, f_n_plus_1_k_u[j]);
+					f_n_plus_1_k_u[j] = F_next[j][k_u] ;
+					f_n_k_u[j] = CRsub(f_n_plus_1_k_u[j], discount_factor * dt);
 
-					f_n_plus_1_k_d[j] = F_prev[j][k_d];
-					f_n_k_d[j] = RCmul(discount_factor, f_n_plus_1_k_d[j]);
+//					f_n_plus_1_k_d[j] = F_next[j][k_d];
+					f_n_k_d[j] = f_n_k_u[j];//CRsub(f_n_plus_1_k_d[j], discount_factor * dt);
 				}
 			}
 			/*
@@ -880,13 +848,13 @@ int main()
 	double kappa = 2.0; /*heston parameter, mean reversion*/
 	double theta = 0.2; /*heston parameter, long-run variance*/
 	double sigma = 0.2; /*heston parameter, volatility of variance*/
-	double rho = 0.5; /*heston parameter, correlation*/
+	double rho = 0; /*heston parameter, correlation*/
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
 
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2,11)); /*space grid. should be a power of 2*/
-	double L = 4; /*scaling coefficient*/
+	uint M = uint(pow(2,10)); /*space grid. should be a power of 2*/
+	double L = 2; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)
