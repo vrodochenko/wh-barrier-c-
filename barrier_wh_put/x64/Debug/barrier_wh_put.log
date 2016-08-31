@@ -1,4 +1,4 @@
-﻿Сборка начата 30.08.2016 0:15:21.
+﻿Сборка начата 31.08.2016 22:28:57.
      1>Проект "C:\Users\Родоченко\Documents\Visual Studio 2015\Projects\barrier_wh_put\barrier_wh_put\barrier_wh_put.vcxproj" в узле 2 (целевые объекты Build).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\CL.exe /c /I"C:\Program Files (x86)\Visual Leak Detector\include" /ZI /nologo /W3 /WX- /sdl /Od /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"x64\Debug\\" /Fd"x64\Debug\vc140.pdb" /Gd /TP /errorReport:prompt barrier_wh_heston_markov_chain_vol.cpp
@@ -12,4 +12,4 @@
 
 Сборка успешно завершена.
 
-Затраченное время: 00:00:01.46
+Затраченное время: 00:00:00.88

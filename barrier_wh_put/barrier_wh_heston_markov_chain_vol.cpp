@@ -700,45 +700,23 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 				{
 					f_n_plus_1_k_u[j] = F_next[j][k_u] ;
 					f_n_k_u[j] = CRsub(f_n_plus_1_k_u[j], discount_factor * dt);
-
-//					f_n_plus_1_k_d[j] = F_next[j][k_d];
-					f_n_k_d[j] = f_n_k_u[j];//CRsub(f_n_plus_1_k_d[j], discount_factor * dt);
+					f_n_k_d[j] = f_n_k_u[j];
 				}
 			}
-			/*
-            f_n_k = pd_f[n, k] * f_n_k_d + pu_f[n, k] * f_n_k_u
-			*/
+			/* f_n_k = pd_f[n, k] * f_n_k_d + pu_f[n, k] * f_n_k_u */
 			for (j = 0; j < M; j++)
 			{
 				f_n_k[j] = Cadd(RCmul(pd_f[n][k], f_n_k_d[j]), RCmul(pu_f[n][k], f_n_k_u[j]));
 				F_prev[j][k] = f_n_k[j];
 			}
-
-			/*here we try some cutdown magic. The procedure without it returns great bubbles to the right
-              from the strike. And the more L the greater this bubble grows.
-              what we are going to do there is to try to cut off all the values on prices greater than, say,
-              4 times bigger then the strike
-              we use S>4K and, therefore, y > ln(4K/H) + (pho/sigma)*V inequality to do this
-  
-			
-			for (j = 0; j < M; j++)
-			{
-				if (ba_prices[j] < 4 * K)
-				{
-					F[j][n][k] = f_n_k[j];
-				}
-				else
-				{
-					F[j][n][k].i = 0.0;
-					F[j][n][k].r = 0.0;
-				}
-			}*/					
 		}
 		for (k = 0; k < Nt; k++)
+		{
 			for (j = 0; j < M; j++)
 			{
 				F_next[j][k] = F_prev[j][k];
 			}
+		}
 	}
 	return OK;
 }
@@ -839,7 +817,7 @@ int main()
 	double H = 90.0;
 	double K = 100.0;
 	double r_premia = 10;
-	double spot = 80.0;
+	double spot = 70.0;
 	double spot_step = 1;
 	uint spot_iterations = 41;
 
@@ -853,8 +831,8 @@ int main()
 
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2,10)); /*space grid. should be a power of 2*/
-	double L = 2; /*scaling coefficient*/
+	uint M = uint(pow(2,12)); /*space grid. should be a power of 2*/
+	double L =	3; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)
