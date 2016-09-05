@@ -132,6 +132,7 @@
     <ClCompile Include="test_of_voltree.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="heston_mc_brute_force.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>

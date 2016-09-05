@@ -5,6 +5,7 @@
 #include <iostream>
 #include "pnl/pnl_fft.h"
 #include "pnl/pnl_complex.h"
+#include "heston_mc_brute_force.h"
 
 #define MEMORY_ALLOCATION_FAILURE 1
 #define uint unsigned int
@@ -468,8 +469,8 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 	double beta_minus, beta_plus; /*wh-factors coefficients*/
 	double local_barrier; /*a barrier depending on [n][k], to check crossing on each step*/
 
-	if (2.0 * kappa * theta < pow(sigma, 2))
-		return 1; /*Novikov condition not satisfied, probability values could be incorrect*/
+	//if (2.0 * kappa * theta < pow(sigma, 2))
+	//	return 1; /*Novikov condition not satisfied, probability values could be incorrect*/
 	/*Body*/
 	r = log(1 + r_premia / 100);
 
@@ -696,28 +697,19 @@ static int compute_price(double tt, double H, double K, double r_premia, double 
 			{
 				f_n_k[j] = Cadd(RCmul(pd_f[n][k], f_n_k_d[j]), RCmul(pu_f[n][k], f_n_k_u[j]));
 				F[j][n][k] = f_n_k[j];
-			}
-
-			/*here we try some cutdown magic. The procedure without it returns great bubbles to the right
-              from the strike. And the more L the greater this bubble grows.
-              what we are going to do there is to try to cut off all the values on prices greater than, say,
-              4 times bigger then the strike
-              we use S>4K and, therefore, y > ln(4K/H) + (pho/sigma)*V inequality to do this
-  
-			
-			for (j = 0; j < M; j++)
-			{
-				if (ba_prices[j] < 4 * K)
-				{
-					F[j][n][k] = f_n_k[j];
-				}
-				else
-				{
-					F[j][n][k].i = 0.0;
-					F[j][n][k].r = 0.0;
-				}
-			}*/
-						
+			}						
+		}
+	}
+	/*Preprocessing F before showing out*/
+	for (j = 0; j < M; j++)
+	{
+		if (ba_prices[j] <= H)
+		{
+			F[j][0][0].r = 0;
+		}
+		if (F[j][0][0].r < 0.)
+		{
+			F[j][0][0].r = 0;
 		}
 	}
 	return OK;
@@ -816,26 +808,26 @@ int main()
 {
 	/*Option parameters*/
 	double tt = 1;
-	double H = 90.0;
+	double H = 20.0;
 	double K = 100.0;
 	double r_premia = 10;
-	double spot = 90.0;
+	double spot = 95.0;
 	double spot_step = 10;
 	uint spot_iterations = 21;
 
 	/*Heston model parameters*/
-	double v0 = 0.1; /* initial volatility */
+	double v0 = 0.01; /* initial volatility */
 	double kappa = 2.0; /*heston parameter, mean reversion*/
-	double theta = 0.15; /*heston parameter, long-run variance*/
-	double sigma = 0.02; /*heston parameter, volatility of variance*/
+	double theta = 0.01; /*heston parameter, long-run variance*/
+	double sigma = 0.2; /*heston parameter, volatility of variance*/
 	double omega = sigma; /*sigma is used everywhere, omega - in the variance tree*/
 	double rho = 0.5; /*heston parameter, correlation*/
 
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2,12)); /*space grid. should be a power of 2*/
+	uint M = uint(pow(2, 13)); /*space grid. should be a power of 2*/
 	double L = 3; /*scaling coefficient*/
-
+	/*
 	int allocation = memory_allocation(Nt, M, M);
 	if (allocation == MEMORY_ALLOCATION_FAILURE)
 	{
@@ -856,5 +848,12 @@ int main()
 		getchar();
 		return OK;
 	}
-
+	*/
+	double avg_price = 0;
+	for (int iter = 0; iter < 500; iter++)
+	{
+		avg_price += generate_heston_trajectory_return(tt, spot, H, K, r_premia, v0, kappa, theta, sigma, rho, 500);
+	}
+	printf("avg_price %f\n", avg_price);
+	getchar();
 }
