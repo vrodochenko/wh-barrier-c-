@@ -81,3 +81,33 @@ void testrnd()
 	pnl_rng_free(&rng); /* Frees the generator */
 	exit(0);
 }
+double testmean()
+{
+	double random_value;
+	double mean = 0;
+	time_t rawtime;
+	PnlRng *randvar1 = pnl_rng_create(PNL_RNG_MERSENNE);
+	int iterations = 100000;
+	for (int i = 0; i < iterations; i++)
+	{
+		pnl_rng_sseed(randvar1, time(&rawtime));
+		random_value = pnl_rng_normal(randvar1);
+		mean += random_value;
+	}
+	return mean / iterations;
+}
+double testdispersion()
+{
+	double random_value;
+	double mean = 0;
+	time_t rawtime;
+	PnlRng *randvar1 = pnl_rng_create(PNL_RNG_MERSENNE);
+	int iterations = 100000;
+	for (int i = 0; i < iterations; i++)
+	{
+		pnl_rng_sseed(randvar1, time(&rawtime));
+		random_value = pnl_rng_normal(randvar1);
+		mean += SQR(random_value - 0.0);
+	}
+	return mean / (iterations - 1.0);
+}

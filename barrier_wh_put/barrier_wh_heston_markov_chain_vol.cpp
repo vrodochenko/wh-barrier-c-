@@ -849,11 +849,12 @@ int main()
 		return OK;
 	}
 	*/
-	double avg_price = 0;
-	for (int iter = 0; iter < 500; iter++)
-	{
-		avg_price += generate_heston_trajectory_return(tt, spot, H, K, r_premia, v0, kappa, theta, sigma, rho, 500);
-	}
-	printf("avg_price %f\n", avg_price);
+	//double avg_price = 0;
+	//for (int iter = 0; iter < 500; iter++)
+	//{
+	//	avg_price += generate_heston_trajectory_return(tt, spot, H, K, r_premia, v0, kappa, theta, sigma, rho, 500);
+	//}
+	double disp = testdispersion();
+	printf("disp %f\n", disp);
 	getchar();
 }
