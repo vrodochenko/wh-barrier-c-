@@ -808,7 +808,7 @@ int main()
 {
 	/*Option parameters*/
 	double tt = 1;
-	double H = 20.0;
+	double H = 90.0;
 	double K = 100.0;
 	double r_premia = 10;
 	double spot = 95.0;
@@ -849,12 +849,13 @@ int main()
 		return OK;
 	}
 	*/
-	//double avg_price = 0;
-	//for (int iter = 0; iter < 500; iter++)
-	//{
-	//	avg_price += generate_heston_trajectory_return(tt, spot, H, K, r_premia, v0, kappa, theta, sigma, rho, 500);
-	//}
-	double disp = testdispersion();
-	printf("disp %f\n", disp);
+	double avg_price = 0;
+	int trajectories = 100000;
+	for (int trajectory = 0; trajectory < trajectories; trajectory++)
+	{
+		avg_price += generate_heston_trajectory_return(tt, spot, H, K, r_premia, v0, kappa, theta, sigma, rho, 100);
+	}
+	avg_price = avg_price / double(trajectories);
+	printf("avg_price %f", avg_price);
 	getchar();
 }
