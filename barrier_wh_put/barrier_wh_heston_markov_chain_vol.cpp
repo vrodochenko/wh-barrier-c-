@@ -846,7 +846,7 @@ int main()
 
 	/*method parameters*/
 	uint Nt = 100; /*number of time steps*/
-	uint M = uint(pow(2, 13)); /*space grid. should be a power of 2*/
+	uint M = uint(pow(2, 12)); /*space grid. should be a power of 2*/
 	double L = 3; /*scaling coefficient*/
 
 	int allocation = memory_allocation(Nt, M, M);
@@ -856,7 +856,9 @@ int main()
 	}
 	else
 	{
+		double start_time = clock() / double(CLOCKS_PER_SEC);
 		compute_price(tt, H, K, r_premia, v0, kappa, theta, sigma, rho, L, M, Nt);
+		double end_time = clock() / double(CLOCKS_PER_SEC);
 		for (int j = find_nearest_right_price_position(1.5*K,M); j >= find_nearest_left_price_position(H, M); j--)
 		{
 			printf("ba_price %f Price %f + %f i\n", ba_prices[j], F_next[j][0].r, F_next[j][0].i);
@@ -865,6 +867,8 @@ int main()
 		{
 			printf("interp ba_price %f Price %f\n", spot + i*spot_step, quadratic_interpolation(spot + i*spot_step, M));
 		}
+		printf("Time elapsed (in sedonds): %f\n", end_time - start_time);
+
 		free_memory(Nt, M, M);
 		getchar();
 		return OK;
